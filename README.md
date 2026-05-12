@@ -1,6 +1,6 @@
 # Voice Agent 访客登记 Demo
 
-电话接入的 AI 门岗：访客拨打 Twilio 号码，Agent 用自然中文采集车牌、来访单位、手机号和事由，登记本地记录，并通过 PushPlus 推送到个人微信。
+电话接入的 AI 门岗：访客拨打 Twilio 号码，OpenAI Realtime 用自然中文实时对话，采集车牌、来访单位、手机号和事由，随后通过 PushPlus 推送到保安个人微信。
 
 ## 架构
 
@@ -11,14 +11,13 @@
 Twilio Voice Number
   |
   v
-POST /voice  本地 Node.js/Express
-  |
-  +--> Twilio Gather/Say：中文语音对话
-  +--> OpenAI：从自然表达中提取访客字段
-  +--> data/visitors.json：本地访客记录和回访识别
+POST /voice -> <Connect><Stream>
   |
   v
-PushPlus 微信公众号 --> 保安个人微信
+Node.js /media WebSocket <-> OpenAI Realtime
+  |
+  +--> data/visitors.json 本地记录和回访识别
+  +--> PushPlus 微信通知
 ```
 
 ## 本地部署
@@ -32,19 +31,19 @@ npm start
 另开窗口暴露本地服务：
 
 ```bash
-npx ngrok http 3000
+ngrok http 3000
 ```
 
-在 Twilio 控制台把号码的 Voice webhook 配成：
+把 ngrok 的 HTTPS 地址填入 `.env`：
 
-```text
-https://<你的-ngrok域名>/voice
+```env
+PUBLIC_BASE_URL=https://your-ngrok-domain.ngrok-free.app
 ```
 
-然后用手机拨打 Twilio 号码，按自然口语一次说完即可，例如：
+重启 `npm start`，然后在 Twilio 控制台把号码的 Voice webhook 配成：
 
 ```text
-你好，我车牌是沪A12345，去星河科技，手机号一三八一二三四五六七八，过来送货。
+https://your-ngrok-domain.ngrok-free.app/voice
 ```
 
 ## 环境变量
@@ -54,17 +53,22 @@ TWILIO_ACCOUNT_SID=your_twilio_account_sid
 TWILIO_AUTH_TOKEN=your_twilio_auth_token
 TWILIO_PHONE_NUMBER=your_twilio_phone_number
 OPENAI_API_KEY=your_openai_api_key
+OPENAI_REALTIME_MODEL=gpt-realtime
 PUSHPLUS_TOKEN=your_pushplus_token
 PUSHPLUS_TOPIC=
+PUBLIC_BASE_URL=https://your-ngrok-domain.ngrok-free.app
 PORT=3000
 HOST=0.0.0.0
 ```
 
-`PUSHPLUS_TOKEN` 获取方式：微信登录 PushPlus，关注 PushPlus 公众号，在后台复制 Token。`PUSHPLUS_TOPIC` 可留空，留空时只推送给自己。
+## 演示话术
 
-## 演示验收
+```text
+AI：您好，门岗。麻烦说下车牌号，找哪家公司，什么事儿？
+用户：沪A12345，来蓝色鲸鱼科技送货的。
+AI：收到，手机号方便留一下吗？请慢一点读。
+用户：幺三八，幺二三四，幺一二三。
+AI：好的，沪A12345，蓝色鲸鱼科技送货，已通知门卫，请稍等放行。
+```
 
-- 全链路：电话接通 -> Agent 采集信息 -> 微信收到完整访客通知。
-- 时长：建议用户一次说完四项信息，目标从 Agent 开口到微信推送小于 25 秒。
-- 体验：缺字段时一次性补问缺失项，避免机械式逐项问答。
-- 安全：真实密钥只放 `.env`，不要提交 `.env` 或 `data/`。
+真实密钥只放 `.env`，不要提交 `.env`、`data/` 或 `logs/`。
