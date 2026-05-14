@@ -2,6 +2,10 @@ node_modules/
 .env
 /data/
 /logs/
+/build/
+/tools/
+*.pptx
+~$*
 .DS_Store
 npm-debug.log*
 yarn-error.log*
