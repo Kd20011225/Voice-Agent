@@ -73,6 +73,15 @@ export function createDialogueSession(visitorService) {
     }
 
     draftVisitor = visitorService.mergeVisitor(draftVisitor, parsed);
+    const final = visitorService.normalizeVisitor(draftVisitor);
+    const issues = visitorService.validateVisitor(final);
+    if (issues.length === 0) return { kind: 'ready_to_submit' };
+    if (hasCollectedAnyVisitDetail(draftVisitor)) {
+      return {
+        kind: 'prompt',
+        instruction: buildRetryInstruction(issues)
+      };
+    }
     return { kind: 'silent' };
   }
 
@@ -216,4 +225,14 @@ function buildRetryInstruction(issues) {
   };
   const missing = fields.map((field) => labelMap[field] || field).join('、');
   return `还缺：${missing}。请只追问缺失的信息，语气像真人门卫，简短。`;
+}
+
+function hasCollectedAnyVisitDetail(visitor) {
+  return Boolean(
+    visitor.visitor_name
+    || visitor.license_plate
+    || visitor.company
+    || visitor.phone
+    || visitor.reason
+  );
 }

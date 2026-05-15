@@ -113,7 +113,7 @@ export function createVoiceGateway(config, visitorService) {
                 threshold: 0.45,
                 prefix_padding_ms: 300,
                 silence_duration_ms: 550,
-                create_response: true,
+                create_response: false,
                 interrupt_response: true
               }
             },
@@ -193,6 +193,10 @@ export function createVoiceGateway(config, visitorService) {
         if (action.kind === 'prompt') sendAssistantInstruction(action.instruction);
         if (action.kind === 'risk_handoff') sendAssistantInstruction(action.instruction);
         if (action.kind === 'confirmed_return') {
+          const result = await dialogue.handleSubmitVisit(null, '{}');
+          if (result.instruction) sendAssistantInstruction(result.instruction);
+        }
+        if (action.kind === 'ready_to_submit') {
           const result = await dialogue.handleSubmitVisit(null, '{}');
           if (result.instruction) sendAssistantInstruction(result.instruction);
         }
@@ -304,7 +308,7 @@ export function createVoiceGateway(config, visitorService) {
                 threshold: 0.45,
                 prefix_padding_ms: 300,
                 silence_duration_ms: 550,
-                create_response: true,
+                create_response: false,
                 interrupt_response: true
               }
             },
@@ -375,6 +379,15 @@ export function createVoiceGateway(config, visitorService) {
           streamSid,
           mark: { name: `guard-response-${Date.now()}` }
         }));
+        return;
+      }
+
+      if (event.type === 'conversation.item.input_audio_transcription.completed') {
+        const question = visitorService.sanitizeTranscript(event.transcript || '');
+        if (question) {
+          const result = visitorService.answerGuardQuery(question);
+          sendGuardInstruction(`请用中文自然地回答保安：${result.answer}`);
+        }
         return;
       }
 
