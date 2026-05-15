@@ -88,8 +88,7 @@ export function createVoiceGateway(config, visitorService) {
 
     const openaiWs = new WebSocket(`wss://api.openai.com/v1/realtime?model=${encodeURIComponent(config.openaiRealtimeModel)}`, {
       headers: {
-        Authorization: `Bearer ${config.openaiApiKey}`,
-        'OpenAI-Beta': 'realtime=v1'
+        Authorization: `Bearer ${config.openaiApiKey}`
       }
     });
 
@@ -98,27 +97,33 @@ export function createVoiceGateway(config, visitorService) {
       openaiWs.send(JSON.stringify({
         type: 'session.update',
         session: {
-          modalities: ['text', 'audio'],
+          type: 'realtime',
+          model: config.openaiRealtimeModel,
+          output_modalities: ['audio'],
           instructions: buildRealtimeInstructions(),
-          voice: 'alloy',
-          input_audio_format: 'g711_ulaw',
-          output_audio_format: 'g711_ulaw',
-          input_audio_transcription: {
-            model: 'gpt-4o-transcribe',
-            language: 'zh'
-          },
-          turn_detection: {
-            type: 'server_vad',
-            threshold: 0.45,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 550,
-            create_response: true,
-            interrupt_response: true
+          audio: {
+            input: {
+              format: { type: 'audio/pcmu' },
+              transcription: {
+                model: 'gpt-4o-transcribe',
+                language: 'zh'
+              },
+              turn_detection: {
+                type: 'server_vad',
+                threshold: 0.45,
+                prefix_padding_ms: 300,
+                silence_duration_ms: 550,
+                create_response: true,
+                interrupt_response: true
+              }
+            },
+            output: {
+              format: { type: 'audio/pcmu' },
+              voice: 'alloy'
+            }
           },
           tools: [submitVisitToolDefinition()],
-          tool_choice: 'auto',
-          temperature: 0.7,
-          max_response_output_tokens: 700
+          tool_choice: 'auto'
         }
       }));
     });
@@ -237,7 +242,7 @@ export function createVoiceGateway(config, visitorService) {
       openaiWs.send(JSON.stringify({
         type: 'response.create',
         response: {
-          modalities: ['audio', 'text'],
+          output_modalities: ['audio'],
           instructions: instruction
         }
       }));
@@ -270,8 +275,7 @@ export function createVoiceGateway(config, visitorService) {
 
     const openaiWs = new WebSocket(`wss://api.openai.com/v1/realtime?model=${encodeURIComponent(config.openaiRealtimeModel)}`, {
       headers: {
-        Authorization: `Bearer ${config.openaiApiKey}`,
-        'OpenAI-Beta': 'realtime=v1'
+        Authorization: `Bearer ${config.openaiApiKey}`
       }
     });
 
@@ -280,27 +284,33 @@ export function createVoiceGateway(config, visitorService) {
       openaiWs.send(JSON.stringify({
         type: 'session.update',
         session: {
-          modalities: ['text', 'audio'],
+          type: 'realtime',
+          model: config.openaiRealtimeModel,
+          output_modalities: ['audio'],
           instructions: buildGuardQueryInstructions(),
-          voice: 'alloy',
-          input_audio_format: 'g711_ulaw',
-          output_audio_format: 'g711_ulaw',
-          input_audio_transcription: {
-            model: 'gpt-4o-transcribe',
-            language: 'zh'
-          },
-          turn_detection: {
-            type: 'server_vad',
-            threshold: 0.45,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 550,
-            create_response: true,
-            interrupt_response: true
+          audio: {
+            input: {
+              format: { type: 'audio/pcmu' },
+              transcription: {
+                model: 'gpt-4o-transcribe',
+                language: 'zh'
+              },
+              turn_detection: {
+                type: 'server_vad',
+                threshold: 0.45,
+                prefix_padding_ms: 300,
+                silence_duration_ms: 550,
+                create_response: true,
+                interrupt_response: true
+              }
+            },
+            output: {
+              format: { type: 'audio/pcmu' },
+              voice: 'alloy'
+            }
           },
           tools: [guardQueryToolDefinition()],
-          tool_choice: 'auto',
-          temperature: 0.4,
-          max_response_output_tokens: 500
+          tool_choice: 'auto'
         }
       }));
     });
@@ -420,7 +430,7 @@ export function createVoiceGateway(config, visitorService) {
       openaiWs.send(JSON.stringify({
         type: 'response.create',
         response: {
-          modalities: ['audio', 'text'],
+          output_modalities: ['audio'],
           instructions: instruction
         }
       }));
