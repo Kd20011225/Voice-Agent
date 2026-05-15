@@ -23,10 +23,9 @@ HTTP 调试 -> /guard/query
 ## 技术选型
 
 - 电话接入选择 Twilio Voice + Media Stream：Webhook 和 WebSocket 音频流成熟，适合快速跑通端到端 Demo；生产环境可按国内号码和合规要求替换为阿里云语音或 SIP Trunk。
-- 语音模型选择 OpenAI Realtime API：同一连接内完成低延迟语音输入、VAD、转写、语音输出和函数调用，避免 ASR + LLM + TTS 多服务串联带来的延迟。
-- 未使用 VAPI/Retell 这类商业 SaaS：它们上线快，但链路黑盒，不利于展示架构设计、工具调用、风控和数据层实现。
-- 存储选择 SQLite：本地部署简单，支持结构化查询和索引，足够支撑 Demo；生产环境可替换为 PostgreSQL/MySQL。
-- 微信通知选择 PushPlus：个人微信 Demo 接入成本低；生产环境可替换为企业微信机器人或企业微信 API。
+- 语音模型选择 OpenAI Realtime API：同一连接内完成语音输入、VAD、转写、语音输出和函数调用，避免 ASR + LLM + TTS 多服务串联延迟。
+- 未使用 VAPI/Retell：商业 SaaS 上线快但链路黑盒，本项目更重视可解释的架构、工具调用、风控和数据层实现。
+- 存储选择 SQLite，通知选择 PushPlus：本地部署简单，能验证结构化登记、查询和个人微信通知；生产环境可替换为 PostgreSQL/MySQL 和企业微信 API。
 
 ## 功能
 
@@ -65,7 +64,7 @@ Twilio 控制台配置：
 
 ## 环境变量
 
-参考 `.env.example`：
+参考 `.env.example`，真实密钥只放 `.env`，不要提交 `.env`、`data/`、`logs/`。
 
 ```env
 TWILIO_ACCOUNT_SID=your_twilio_account_sid
@@ -81,5 +80,3 @@ PORT=3000
 HOST=0.0.0.0
 GUARD_QUERY_TOKEN=
 ```
-
-真实密钥只放 `.env`，不要提交 `.env`、`data/`、`logs/`。
