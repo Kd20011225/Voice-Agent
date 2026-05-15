@@ -11,7 +11,7 @@ export function createInfrastructure(config) {
 
   function loadVisitors() {
     const rows = db.prepare(`
-      SELECT license_plate, company, phone, reason, visited_at, is_returning, previous_summary
+      SELECT visitor_name, license_plate, company, phone, reason, visited_at, is_returning, previous_summary
       FROM visitors
       ORDER BY visited_at DESC, id DESC
       LIMIT 200
@@ -19,6 +19,7 @@ export function createInfrastructure(config) {
 
     return {
       visitors: rows.map((row) => ({
+        visitor_name: row.visitor_name || '',
         license_plate: row.license_plate || '',
         company: row.company || '',
         phone: row.phone || '',
@@ -55,10 +56,14 @@ export function createInfrastructure(config) {
       where.push('company LIKE ?');
       params.push(`%${filters.company}%`);
     }
+    if (filters.visitorName) {
+      where.push('visitor_name LIKE ?');
+      params.push(`%${filters.visitorName}%`);
+    }
 
     params.push(limit);
     const sql = `
-      SELECT license_plate, company, phone, reason, visited_at, is_returning, previous_summary
+      SELECT visitor_name, license_plate, company, phone, reason, visited_at, is_returning, previous_summary
       FROM visitors
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
       ORDER BY visited_at DESC, id DESC
@@ -66,6 +71,7 @@ export function createInfrastructure(config) {
     `;
 
     return db.prepare(sql).all(...params).map((row) => ({
+      visitor_name: row.visitor_name || '',
       license_plate: row.license_plate || '',
       company: row.company || '',
       phone: row.phone || '',
@@ -87,12 +93,24 @@ export function createInfrastructure(config) {
     `).all().map((row) => row.company);
   }
 
+  function listVisitorNames() {
+    return db.prepare(`
+      SELECT visitor_name
+      FROM visitors
+      WHERE visitor_name <> ''
+      GROUP BY visitor_name
+      ORDER BY COUNT(*) DESC, MAX(visited_at) DESC
+      LIMIT 200
+    `).all().map((row) => row.visitor_name);
+  }
+
   async function saveVisit(visitor) {
     db.prepare(`
       INSERT INTO visitors (
-        license_plate, company, phone, reason, visited_at, is_returning, previous_summary
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        visitor_name, license_plate, company, phone, reason, visited_at, is_returning, previous_summary
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
+      visitor.visitor_name || '',
       visitor.license_plate || '',
       visitor.company || '',
       visitor.phone || '',
@@ -130,6 +148,7 @@ export function createInfrastructure(config) {
   async function notifyGuard(visitor) {
     const title = '访客登记通知';
     const content = [
+      visitor.visitor_name ? `**访客：** ${visitor.visitor_name}` : '',
       `**车牌：** ${visitor.license_plate}`,
       `**来访单位：** ${visitor.company}`,
       `**来访事由：** ${visitor.reason}`,
@@ -159,13 +178,14 @@ export function createInfrastructure(config) {
     }
   }
 
-  return { loadVisitors, queryVisitors, listCompanies, saveVisit, saveRiskEvent, notifyGuard };
+  return { loadVisitors, queryVisitors, listCompanies, listVisitorNames, saveVisit, saveRiskEvent, notifyGuard };
 }
 
 function initializeDatabase(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS visitors (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      visitor_name TEXT NOT NULL DEFAULT '',
       license_plate TEXT NOT NULL,
       company TEXT NOT NULL,
       phone TEXT NOT NULL,
@@ -184,9 +204,13 @@ function initializeDatabase(db) {
       action TEXT NOT NULL DEFAULT 'log',
       created_at TEXT NOT NULL
     );
+  `);
+  ensureColumn(db, 'visitors', 'visitor_name', "TEXT NOT NULL DEFAULT ''");
 
+  db.exec(`
     CREATE INDEX IF NOT EXISTS idx_visitors_phone ON visitors (phone);
     CREATE INDEX IF NOT EXISTS idx_visitors_license_plate ON visitors (license_plate);
+    CREATE INDEX IF NOT EXISTS idx_visitors_name ON visitors (visitor_name);
     CREATE INDEX IF NOT EXISTS idx_visitors_visited_at ON visitors (visited_at);
     CREATE INDEX IF NOT EXISTS idx_risk_events_phone ON risk_events (phone);
     CREATE INDEX IF NOT EXISTS idx_risk_events_created_at ON risk_events (created_at);
@@ -208,14 +232,15 @@ function migrateLegacyJsonIfNeeded(db, legacyJsonDbFile) {
   const visitors = Array.isArray(legacy.visitors) ? legacy.visitors : [];
   const insert = db.prepare(`
     INSERT INTO visitors (
-      license_plate, company, phone, reason, visited_at, is_returning, previous_summary
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      visitor_name, license_plate, company, phone, reason, visited_at, is_returning, previous_summary
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   db.exec('BEGIN');
   try {
     for (const visitor of visitors) {
       insert.run(
+        visitor.visitor_name || visitor.name || '',
         visitor.license_plate || '',
         visitor.company || '',
         visitor.phone || '',
@@ -231,6 +256,12 @@ function migrateLegacyJsonIfNeeded(db, legacyJsonDbFile) {
     db.exec('ROLLBACK');
     console.warn('旧 JSON 访客数据迁移失败。', error?.message || error);
   }
+}
+
+function ensureColumn(db, table, column, definition) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (columns.some((item) => item.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }
 
 export function formatTimestamp(ts) {

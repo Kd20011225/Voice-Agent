@@ -4,7 +4,7 @@ export const LICENSE_PLATE_PATTERN = /^[京津沪渝冀豫云辽黑湘皖鲁新�
 
 export function createVisitorService(infrastructure) {
   function parseVisitInfo(sentence) {
-    const result = { license_plate: '', company: '', phone: '', reason: '' };
+    const result = { visitor_name: '', license_plate: '', company: '', phone: '', reason: '' };
     const text = normalizeChineseDigits(sanitizeTranscript(sentence));
 
     const phoneMatch = text.match(/1\d{10}/);
@@ -13,6 +13,10 @@ export function createVisitorService(infrastructure) {
 
     const plateMatch = text.toUpperCase().match(/[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼][A-Z][A-Z0-9]{5,6}/u);
     if (plateMatch) result.license_plate = plateMatch[0].trim();
+
+    const nameMatch = text.match(/(?:我姓|姓|我是|叫)([\u4e00-\u9fa5]{1,4})(?:先生|女士|师傅|老板|经理)?/u)
+      || text.match(/([\u4e00-\u9fa5]{1,3})(?:先生|女士|师傅|老板|经理)/u);
+    if (nameMatch) result.visitor_name = normalizeVisitorName(nameMatch[1], text);
 
     const commonReasons = ['送材料', '送货', '拜访', '面试', '维修', '取货', '开会', '安装'];
     for (const reason of commonReasons) {
@@ -47,6 +51,7 @@ export function createVisitorService(infrastructure) {
 
   function normalizeVisitor(visitor) {
     const record = {
+      visitor_name: sanitizeTextField(visitor.visitor_name || visitor.name || ''),
       license_plate: normalizeLicensePlate(visitor.license_plate || ''),
       company: sanitizeTextField(visitor.company || ''),
       phone: normalizePhone(visitor.phone || ''),
@@ -60,6 +65,7 @@ export function createVisitorService(infrastructure) {
     if (previous) {
       record.is_returning = true;
       record.previous_summary = `上次于 ${formatTimestamp(previous.visited_at)} 来访 ${previous.company}，事由：${previous.reason}`;
+      if (!record.visitor_name && previous.visitor_name) record.visitor_name = previous.visitor_name;
     }
     return record;
   }
@@ -168,6 +174,7 @@ function extractQueryFilters(question, infrastructure) {
   const phoneMatch = text.match(/1\d{10}/);
   const plateMatch = text.match(/[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼][A-Z][A-Z0-9]{5,6}/u);
   const company = inferCompany(text, infrastructure.listCompanies ? infrastructure.listCompanies() : []);
+  const visitorName = inferVisitorName(text, infrastructure.listVisitorNames ? infrastructure.listVisitorNames() : []);
 
   return {
     startIso: range.startIso,
@@ -175,7 +182,8 @@ function extractQueryFilters(question, infrastructure) {
     rangeLabel: range.label,
     phone: phoneMatch ? phoneMatch[0] : '',
     licensePlate: plateMatch ? plateMatch[0] : '',
-    company
+    company,
+    visitorName
   };
 }
 
@@ -225,6 +233,27 @@ function inferCompany(text, companies) {
     .sort((a, b) => b.length - a.length);
 
   return normalizedCompanies.find((company) => text.includes(company.toUpperCase())) || '';
+}
+
+function inferVisitorName(text, names) {
+  const normalizedNames = names
+    .map((name) => sanitizeTextField(name))
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+
+  const exact = normalizedNames.find((name) => text.includes(name.toUpperCase()));
+  if (exact) return exact;
+
+  const titleMatch = text.match(/([\u4e00-\u9fa5]{1,3})(?:先生|女士|师傅|老板|经理)/u);
+  if (titleMatch) return titleMatch[0];
+
+  const surnameMatch = text.match(/(?:姓|姓氏是)([\u4e00-\u9fa5])/u);
+  if (surnameMatch) {
+    const surname = surnameMatch[1];
+    return normalizedNames.find((name) => name.startsWith(surname)) || surname;
+  }
+
+  return '';
 }
 
 function answerCount(question, visitors, filters) {
@@ -316,6 +345,7 @@ function answerRecentList(question, visitors, filters) {
 }
 
 function describeQuerySubject(filters) {
+  if (filters.visitorName) return `${filters.visitorName} `;
   if (filters.licensePlate) return `车牌 ${filters.licensePlate} `;
   if (filters.phone) return `手机号 ${maskPhone(filters.phone)} `;
   if (filters.company) return `${filters.company} `;
@@ -328,6 +358,7 @@ function publicFilters(filters) {
     startIso: filters.startIso,
     endIso: filters.endIso,
     company: filters.company,
+    visitorName: filters.visitorName,
     licensePlate: filters.licensePlate,
     phone: filters.phone ? maskPhone(filters.phone) : ''
   };
@@ -422,6 +453,16 @@ function isUsableVisitorRecord(visitor) {
     && Boolean(visitor.company && visitor.reason);
 }
 
+function normalizeVisitorName(name, text = '') {
+  const clean = sanitizeTextField(name).replace(/^(我姓|姓|我是|叫)/, '');
+  if (!clean) return '';
+  if (/(先生|男|师傅)/u.test(text)) return `${clean}先生`;
+  if (/(女士|女|小姐)/u.test(text)) return `${clean}女士`;
+  if (/(老板)/u.test(text)) return `${clean}老板`;
+  if (/(经理)/u.test(text)) return `${clean}经理`;
+  return clean.length === 1 ? `${clean}先生` : clean;
+}
+
 function isReturnConfirmation(sentence) {
   const text = normalizeChineseDigits(sanitizeTranscript(sentence)).replace(/\s+/g, '');
   return /^(对|是|对对|对的|是的|嗯|行|可以|好|好的|没错|还是|还是老地方|老地方)[。！!，,]*$/u.test(text)
@@ -435,7 +476,7 @@ function isReturnRejection(sentence) {
 
 function hasNewVisitDetails(parsed, sentence) {
   const text = normalizeChineseDigits(sanitizeTranscript(sentence)).toUpperCase();
-  return Boolean(parsed.license_plate || parsed.company || parsed.reason || parsed.phone)
+  return Boolean(parsed.visitor_name || parsed.license_plate || parsed.company || parsed.reason || parsed.phone)
     || LICENSE_PLATE_PATTERN.test(text)
     || /1\d{10}/.test(text);
 }
