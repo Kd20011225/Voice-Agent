@@ -85,6 +85,7 @@ export function createVoiceGateway(config, visitorService) {
     let openaiReady = false;
     let greetingSent = false;
     let callClosed = false;
+    let responseInProgress = false;
 
     const openaiWs = new WebSocket(`wss://api.openai.com/v1/realtime?model=${encodeURIComponent(config.openaiRealtimeModel)}`, {
       headers: {
@@ -111,8 +112,8 @@ export function createVoiceGateway(config, visitorService) {
               turn_detection: {
                 type: 'server_vad',
                 threshold: 0.55,
-                prefix_padding_ms: 500,
-                silence_duration_ms: 900,
+                prefix_padding_ms: 700,
+                silence_duration_ms: 1300,
                 create_response: false,
                 interrupt_response: true
               }
@@ -170,6 +171,11 @@ export function createVoiceGateway(config, visitorService) {
         return;
       }
 
+      if (event.type === 'input_audio_buffer.speech_started') {
+        stopAssistantPlayback();
+        return;
+      }
+
       if ((event.type === 'response.output_audio.delta' || event.type === 'response.audio.delta') && event.delta && streamSid && twilioWs.readyState === WebSocket.OPEN) {
         twilioWs.send(JSON.stringify({
           event: 'media',
@@ -180,6 +186,7 @@ export function createVoiceGateway(config, visitorService) {
       }
 
       if ((event.type === 'response.output_audio.done' || event.type === 'response.audio.done') && streamSid && twilioWs.readyState === WebSocket.OPEN) {
+        responseInProgress = false;
         twilioWs.send(JSON.stringify({
           event: 'mark',
           streamSid,
@@ -247,13 +254,27 @@ export function createVoiceGateway(config, visitorService) {
 
     function sendAssistantInstruction(instruction) {
       if (openaiWs.readyState !== WebSocket.OPEN) return;
+      responseInProgress = true;
       openaiWs.send(JSON.stringify({
         type: 'response.create',
         response: {
           output_modalities: ['audio'],
-          instructions: instruction
+          instructions: buildExactSpeechInstruction(instruction)
         }
       }));
+    }
+
+    function stopAssistantPlayback() {
+      if (streamSid && twilioWs.readyState === WebSocket.OPEN) {
+        twilioWs.send(JSON.stringify({
+          event: 'clear',
+          streamSid
+        }));
+      }
+      if (responseInProgress && openaiWs.readyState === WebSocket.OPEN) {
+        openaiWs.send(JSON.stringify({ type: 'response.cancel' }));
+      }
+      responseInProgress = false;
     }
 
     function sendFunctionResult(callId, output) {
@@ -279,6 +300,7 @@ export function createVoiceGateway(config, visitorService) {
     let openaiReady = false;
     let greetingSent = false;
     let callClosed = false;
+    let responseInProgress = false;
     const handledFunctionCalls = new Set();
 
     const openaiWs = new WebSocket(`wss://api.openai.com/v1/realtime?model=${encodeURIComponent(config.openaiRealtimeModel)}`, {
@@ -306,8 +328,8 @@ export function createVoiceGateway(config, visitorService) {
               turn_detection: {
                 type: 'server_vad',
                 threshold: 0.55,
-                prefix_padding_ms: 500,
-                silence_duration_ms: 900,
+                prefix_padding_ms: 700,
+                silence_duration_ms: 1300,
                 create_response: false,
                 interrupt_response: true
               }
@@ -364,6 +386,11 @@ export function createVoiceGateway(config, visitorService) {
         return;
       }
 
+      if (event.type === 'input_audio_buffer.speech_started') {
+        stopGuardPlayback();
+        return;
+      }
+
       if ((event.type === 'response.output_audio.delta' || event.type === 'response.audio.delta') && event.delta && streamSid && twilioWs.readyState === WebSocket.OPEN) {
         twilioWs.send(JSON.stringify({
           event: 'media',
@@ -374,6 +401,7 @@ export function createVoiceGateway(config, visitorService) {
       }
 
       if ((event.type === 'response.output_audio.done' || event.type === 'response.audio.done') && streamSid && twilioWs.readyState === WebSocket.OPEN) {
+        responseInProgress = false;
         twilioWs.send(JSON.stringify({
           event: 'mark',
           streamSid,
@@ -444,13 +472,27 @@ export function createVoiceGateway(config, visitorService) {
 
     function sendGuardInstruction(instruction) {
       if (openaiWs.readyState !== WebSocket.OPEN) return;
+      responseInProgress = true;
       openaiWs.send(JSON.stringify({
         type: 'response.create',
         response: {
           output_modalities: ['audio'],
-          instructions: instruction
+          instructions: buildExactSpeechInstruction(instruction)
         }
       }));
+    }
+
+    function stopGuardPlayback() {
+      if (streamSid && twilioWs.readyState === WebSocket.OPEN) {
+        twilioWs.send(JSON.stringify({
+          event: 'clear',
+          streamSid
+        }));
+      }
+      if (responseInProgress && openaiWs.readyState === WebSocket.OPEN) {
+        openaiWs.send(JSON.stringify({ type: 'response.cancel' }));
+      }
+      responseInProgress = false;
     }
 
     function sendGuardFunctionResult(callId, output) {
@@ -487,13 +529,17 @@ function isGuardQueryAuthorized(config, req) {
   return bearer === config.guardQueryToken || headerToken === config.guardQueryToken;
 }
 
+function buildExactSpeechInstruction(text) {
+  return `请只逐字说下面这句话，不要添加、改写或解释：${text}`;
+}
+
 function buildGuardQueryInstructions() {
   return `你是门卫查询语音助手，只回答访客记录统计问题。
 
 规则：
 - 全程中文，像门卫同事之间说话，简短自然。
 - 保安问访问量、访问高峰、某车牌最近记录、某公司或某访客访问次数时，调用 answer_guard_query。
-- 支持按访客称呼查询，例如：张先生本周来了几次，王师傅最近一次什么时候来。
+- 支持按访客称呼查询。
 - 不要编造数据，必须以工具返回为准。
 - 回答要口语化，但只说结果，不要解释查询过程。
 - 没听到明确查询条件时，先追问，不要主动汇报最近记录。
@@ -512,7 +558,7 @@ function guardQueryToolDefinition() {
       properties: {
         question: {
           type: 'string',
-          description: 'The guard natural language query, e.g. 本周一共多少访问车辆, 什么时间段访问最多'
+          description: 'The guard natural language query.'
         }
       },
       required: ['question']

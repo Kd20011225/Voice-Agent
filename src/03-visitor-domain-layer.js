@@ -7,8 +7,8 @@ export function createVisitorService(infrastructure) {
     const result = { visitor_name: '', license_plate: '', company: '', phone: '', reason: '' };
     const text = normalizeChineseDigits(sanitizeTranscript(sentence));
 
-    const phoneMatch = text.match(/1\d{10}/);
-    if (phoneMatch) result.phone = phoneMatch[0];
+    const phoneMatch = findPhoneNumber(text);
+    if (phoneMatch) result.phone = phoneMatch;
     if (!result.phone) result.phone = parseSpokenPhone(text);
 
     const plateMatch = text.toUpperCase().match(/[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼][A-Z][A-Z0-9]{5,6}/u);
@@ -83,7 +83,7 @@ export function createVisitorService(infrastructure) {
 
     if (!visitor.phone) {
       issues.push({ field: 'phone', reason: 'missing' });
-    } else if (!/^1\d{10}$/.test(visitor.phone)) {
+    } else if (!isValidPhone(visitor.phone)) {
       issues.push({ field: 'phone', reason: 'invalid_format', value: visitor.phone });
     }
 
@@ -182,7 +182,7 @@ export function createVisitorService(infrastructure) {
 function extractQueryFilters(question, infrastructure) {
   const text = normalizeChineseDigits(question).toUpperCase();
   const range = inferDateRange(text);
-  const phoneMatch = text.match(/1\d{10}/);
+  const phoneMatch = findPhoneNumber(text);
   const plateMatch = text.match(/[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼][A-Z][A-Z0-9]{5,6}/u);
   const company = inferCompany(text, infrastructure.listCompanies ? infrastructure.listCompanies() : []);
   const visitorName = inferVisitorName(text, infrastructure.listVisitorNames ? infrastructure.listVisitorNames() : []);
@@ -191,7 +191,7 @@ function extractQueryFilters(question, infrastructure) {
     startIso: range.startIso,
     endIso: range.endIso,
     rangeLabel: range.label,
-    phone: phoneMatch ? phoneMatch[0] : '',
+    phone: phoneMatch || '',
     licensePlate: plateMatch ? plateMatch[0] : '',
     company,
     visitorName
@@ -473,7 +473,17 @@ export function detectRisk(sentence) {
 }
 
 export function normalizePhone(phone) {
-  return String(phone || '').replace(/[^0-9]/g, '').slice(-11);
+  const digits = String(phone || '').replace(/[^0-9]/g, '');
+  if (digits.length === 10) return `1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return digits;
+
+  const last11 = digits.slice(-11);
+  if (/^1\d{10}$/.test(last11)) return last11;
+
+  const last10 = digits.slice(-10);
+  if (/^[2-9]\d{9}$/.test(last10)) return `1${last10}`;
+
+  return digits.slice(-11);
 }
 
 export function normalizeChineseDigits(text) {
@@ -493,14 +503,26 @@ export function normalizeLicensePlate(plate) {
 function parseSpokenPhone(text) {
   const normalized = normalizeChineseDigits(String(text || '').replace(/肆/g, '四'));
   const digits = Array.from(normalized).map((char) => /\d/.test(char) ? char : '').join('');
-  const match = digits.match(/1\d{10}/);
-  return match ? match[0] : '';
+  return findPhoneNumber(digits);
 }
 
 function isUsableVisitorRecord(visitor) {
   return LICENSE_PLATE_PATTERN.test(normalizeLicensePlate(visitor.license_plate || ''))
-    && /^1\d{10}$/.test(normalizePhone(visitor.phone || ''))
+    && isValidPhone(visitor.phone || '')
     && Boolean(visitor.company && visitor.reason);
+}
+
+function findPhoneNumber(text) {
+  const digits = String(text || '').replace(/[^0-9]/g, '');
+  const chinaOrUsWithCountryCode = digits.match(/1\d{10}/);
+  if (chinaOrUsWithCountryCode) return normalizePhone(chinaOrUsWithCountryCode[0]);
+
+  const usLocal = digits.match(/[2-9]\d{9}/);
+  return usLocal ? normalizePhone(usLocal[0]) : '';
+}
+
+function isValidPhone(phone) {
+  return /^1\d{10}$/.test(normalizePhone(phone || ''));
 }
 
 function normalizeVisitorName(name, text = '') {
@@ -528,5 +550,5 @@ function hasNewVisitDetails(parsed, sentence) {
   const text = normalizeChineseDigits(sanitizeTranscript(sentence)).toUpperCase();
   return Boolean(parsed.visitor_name || parsed.license_plate || parsed.company || parsed.reason || parsed.phone)
     || LICENSE_PLATE_PATTERN.test(text)
-    || /1\d{10}/.test(text);
+    || Boolean(findPhoneNumber(text));
 }
