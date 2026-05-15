@@ -19,9 +19,9 @@ export function createDialogueSession(visitorService) {
   function greetingInstruction() {
     if (previousVisitor) {
       const name = previousVisitor.visitor_name ? `${previousVisitor.visitor_name}您好，` : '您好，';
-      return `请用中文自然地说：${name}今天是不是还来${previousVisitor.company}${previousVisitor.reason}？`;
+      return `请用中文自然地说：${name}今天还是来${previousVisitor.company}${previousVisitor.reason}吗？`;
     }
-    return '请用中文自然地说：您好，请问怎么称呼，车牌号多少，今天找哪家公司，什么事儿？';
+    return '请用中文自然地说：您好，门岗。您怎么称呼？车牌、找哪家公司、什么事儿，一起说下就行。';
   }
 
   async function handleTranscript(transcript) {
@@ -66,7 +66,7 @@ export function createDialogueSession(visitorService) {
         if (visitorService.isReturnRejection(cleanTranscript) && !visitorService.hasNewVisitDetails(parsed, cleanTranscript)) {
           return {
             kind: 'prompt',
-            instruction: '请用中文自然地说：好的，那请问怎么称呼，车牌号多少，今天找哪家公司，什么事儿？不要分开一项一项问。'
+            instruction: '请用中文自然地说：好的，那您怎么称呼？车牌、找哪家公司、什么事儿，一起说下就行。'
           };
         }
       }
@@ -171,7 +171,7 @@ export function buildRealtimeInstructions() {
 - 遇到威胁、硬闯、暴力倾向时，不要自动放行，交给人工门卫。
 
 对话规则：
-- 全程中文，像真人门卫，简短自然。
+- 全程中文，像真人门卫，短句自然，不要像客服或表格系统。
 - 默认走三轮自然流程：先问称呼、车牌、公司、事由；拿到后只问“收到，手机号方便留一下吗？”；手机号有效后直接提交。
 - 如果用户没说称呼，不要为了称呼单独多问一轮；手机号拿到且其他必填字段齐全后可以直接提交。
 - 不要默认要求用户一位一位读，不要像验证码客服。
@@ -210,13 +210,13 @@ export function submitVisitToolDefinition() {
 function buildRetryInstruction(issues) {
   const fields = issues.map((issue) => issue.field);
   if (fields.includes('license_plate') && (fields.includes('company') || fields.includes('reason'))) {
-    return '还缺车牌、来访单位或事由。请合并成一句自然追问：好的，那请问车牌号多少，今天找哪家公司，什么事儿？不要拆开问。';
+    return '请自然追问：我这边没听全，车牌、找哪家公司、什么事儿，麻烦一起再说下。';
   }
   if (fields.includes('license_plate')) {
-    return '车牌没听全或格式不对。请只追问车牌：车牌我没听清，麻烦再说一遍。';
+    return '请自然追问：车牌我没听清，麻烦再说一遍。';
   }
   if (fields.includes('phone')) {
-    return '手机号没听到或不是 11 位。请只追问手机号：手机号方便直接说一下吗？';
+    return '请自然追问：收到，手机号方便说一下吗？';
   }
 
   const labelMap = {
@@ -224,7 +224,7 @@ function buildRetryInstruction(issues) {
     reason: '来访事由'
   };
   const missing = fields.map((field) => labelMap[field] || field).join('、');
-  return `还缺：${missing}。请只追问缺失的信息，语气像真人门卫，简短。`;
+  return `请自然追问：${missing}我还没听清，麻烦补一下。`;
 }
 
 function hasCollectedAnyVisitDetail(visitor) {

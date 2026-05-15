@@ -258,8 +258,11 @@ function inferVisitorName(text, names) {
 
 function answerCount(question, visitors, filters) {
   const subject = describeQuerySubject(filters);
+  const label = `${filters.rangeLabel}${subject}`.trim();
   const uniquePlates = new Set(visitors.map((item) => item.license_plate).filter(Boolean)).size;
-  const answer = `${filters.rangeLabel}${subject}共有 ${visitors.length} 次访问，涉及 ${uniquePlates} 辆车。`;
+  const answer = visitors.length === 0
+    ? `${label}没有匹配的访问记录。`
+    : `${label}共有 ${visitors.length} 次访问，涉及 ${uniquePlates} 辆车。`;
   return {
     answer,
     data: {
@@ -314,8 +317,9 @@ function answerLatestVisit(question, visitors, filters) {
     };
   }
 
+  const name = latest.visitor_name ? `${latest.visitor_name}，` : '';
   return {
-    answer: `最近一次是 ${formatTimestamp(latest.visited_at)}，车牌 ${latest.license_plate}，来 ${latest.company}${latest.reason}。`,
+    answer: `最近一次是 ${formatTimestamp(latest.visited_at)}，${name}车牌 ${latest.license_plate}，来 ${latest.company}${latest.reason}。`,
     data: {
       type: 'latest',
       latest,
@@ -333,7 +337,10 @@ function answerRecentList(question, visitors, filters) {
     };
   }
 
-  const lines = recent.map((item) => `${formatTimestamp(item.visited_at)} ${item.license_plate} 来 ${item.company}${item.reason}`);
+  const lines = recent.map((item) => {
+    const name = item.visitor_name ? `${item.visitor_name} ` : '';
+    return `${formatTimestamp(item.visited_at)} ${name}${item.license_plate} 来 ${item.company}${item.reason}`;
+  });
   return {
     answer: `${filters.rangeLabel}最近 ${recent.length} 条记录：${lines.join('；')}。`,
     data: {

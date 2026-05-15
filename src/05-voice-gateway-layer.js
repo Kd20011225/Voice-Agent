@@ -386,7 +386,7 @@ export function createVoiceGateway(config, visitorService) {
         const question = visitorService.sanitizeTranscript(event.transcript || '');
         if (question) {
           const result = visitorService.answerGuardQuery(question);
-          sendGuardInstruction(`请用中文自然地回答保安：${result.answer}`);
+          sendGuardInstruction(`请像门卫同事一样自然简短地说：${result.answer}`);
         }
         return;
       }
@@ -433,13 +433,13 @@ export function createVoiceGateway(config, visitorService) {
       const question = visitorService.sanitizeTranscript(args.question || '');
       const result = visitorService.answerGuardQuery(question);
       sendGuardFunctionResult(callId, { ok: true, question, answer: result.answer, data: result.data });
-      sendGuardInstruction(`请用中文自然地回答保安：${result.answer}`);
+      sendGuardInstruction(`请像门卫同事一样自然简短地说：${result.answer}`);
     }
 
     function maybeSendGuardGreeting() {
       if (!openaiReady || !streamSid || greetingSent || openaiWs.readyState !== WebSocket.OPEN) return;
       greetingSent = true;
-      sendGuardInstruction('请用中文自然地说：门卫查询助手，请问您要查什么？比如本周来了多少车，或者哪个时间段访问最多。');
+      sendGuardInstruction('请用中文自然地说：门卫查询，您说。');
     }
 
     function sendGuardInstruction(instruction) {
@@ -491,10 +491,11 @@ function buildGuardQueryInstructions() {
   return `你是门卫查询语音助手，只回答访客记录统计问题。
 
 规则：
-- 全程中文，简短自然。
+- 全程中文，像门卫同事之间说话，简短自然。
 - 保安问访问量、访问高峰、某车牌最近记录、某公司或某访客访问次数时，调用 answer_guard_query。
 - 支持按访客称呼查询，例如：张先生本周来了几次，王师傅最近一次什么时候来。
 - 不要编造数据，必须以工具返回为准。
+- 回答要口语化，但只说结果，不要解释查询过程。
 - 不要透露手机号全号，工具返回如有脱敏信息就按脱敏信息说。
 - 如果问题和访客记录无关，就说：我只能查询访客登记记录。`;
 }
