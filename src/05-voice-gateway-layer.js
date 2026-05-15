@@ -110,9 +110,9 @@ export function createVoiceGateway(config, visitorService) {
               },
               turn_detection: {
                 type: 'server_vad',
-                threshold: 0.45,
-                prefix_padding_ms: 300,
-                silence_duration_ms: 550,
+                threshold: 0.55,
+                prefix_padding_ms: 500,
+                silence_duration_ms: 900,
                 create_response: false,
                 interrupt_response: true
               }
@@ -305,9 +305,9 @@ export function createVoiceGateway(config, visitorService) {
               },
               turn_detection: {
                 type: 'server_vad',
-                threshold: 0.45,
-                prefix_padding_ms: 300,
-                silence_duration_ms: 550,
+                threshold: 0.55,
+                prefix_padding_ms: 500,
+                silence_duration_ms: 900,
                 create_response: false,
                 interrupt_response: true
               }
