@@ -491,7 +491,7 @@ export function normalizeLicensePlate(plate) {
 }
 
 function parseSpokenPhone(text) {
-  const normalized = normalizeChineseDigits(text);
+  const normalized = normalizeChineseDigits(String(text || '').replace(/肆/g, '四'));
   const digits = Array.from(normalized).map((char) => /\d/.test(char) ? char : '').join('');
   const match = digits.match(/1\d{10}/);
   return match ? match[0] : '';
