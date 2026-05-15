@@ -127,12 +127,19 @@ export function createVisitorService(infrastructure) {
     const cleanQuestion = sanitizeTranscript(question);
     if (!cleanQuestion) {
       return {
-        answer: '请告诉我要查询什么，例如：今天来了多少辆车，或者本周哪个时间段访问最多。',
+        answer: '想查哪段访客记录？',
         data: null
       };
     }
 
     const filters = extractQueryFilters(cleanQuestion, infrastructure);
+    if (!hasGuardQueryIntent(cleanQuestion, filters)) {
+      return {
+        answer: '您说下要查今天、本周，还是某个人的记录。',
+        data: { type: 'clarify', filters: publicFilters(filters) }
+      };
+    }
+
     const visitors = infrastructure.queryVisitors({ ...filters, limit: 5000 });
 
     if (/(高峰|最多|时间段|时段)/u.test(cleanQuestion)) {
@@ -254,6 +261,13 @@ function inferVisitorName(text, names) {
   }
 
   return '';
+}
+
+function hasGuardQueryIntent(question, filters) {
+  if (filters.startIso || filters.endIso || filters.phone || filters.licensePlate || filters.company || filters.visitorName) {
+    return true;
+  }
+  return /(访问|访客|来访|车辆|车|记录|登记|多少|几辆|几次|总共|一共|数量|统计|高峰|最多|时间段|时段|最近|上次|最后一次|最新|今天|昨天|本周|这周|上周|本月|这个月|上月)/u.test(question);
 }
 
 function answerCount(question, visitors, filters) {

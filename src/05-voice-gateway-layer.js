@@ -439,7 +439,7 @@ export function createVoiceGateway(config, visitorService) {
     function maybeSendGuardGreeting() {
       if (!openaiReady || !streamSid || greetingSent || openaiWs.readyState !== WebSocket.OPEN) return;
       greetingSent = true;
-      sendGuardInstruction('请用中文自然地说：门卫查询，您说。');
+      sendGuardInstruction('请用中文自然地说：您好，想查哪段访客记录？');
     }
 
     function sendGuardInstruction(instruction) {
@@ -496,6 +496,7 @@ function buildGuardQueryInstructions() {
 - 支持按访客称呼查询，例如：张先生本周来了几次，王师傅最近一次什么时候来。
 - 不要编造数据，必须以工具返回为准。
 - 回答要口语化，但只说结果，不要解释查询过程。
+- 没听到明确查询条件时，先追问，不要主动汇报最近记录。
 - 不要透露手机号全号，工具返回如有脱敏信息就按脱敏信息说。
 - 如果问题和访客记录无关，就说：我只能查询访客登记记录。`;
 }
