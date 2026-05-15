@@ -1,6 +1,6 @@
 # Voice Agent 访客登记系统
 
-工业园区电话接入式 AI 门岗 Demo：访客拨打入口号码，Voice Agent 用自然中文采集访客称呼、车牌、来访单位、手机号和事由，校验通过后写入本地 SQLite，并通过 PushPlus 推送到保安微信。系统还支持回访识别和门卫自然语言查询。
+工业园区电话接入式 AI 门岗：访客拨打入口号码，Voice Agent 用自然中文采集访客称呼、车牌、来访单位、手机号和事由，校验通过后写入本地 SQLite，并通过 PushPlus 推送到保安微信。系统还支持回访识别和门卫自然语言查询。
 
 ## 架构
 
@@ -24,7 +24,7 @@ HTTP 调试 -> /guard/query
 
 - 电话接入选择 Twilio Voice + Media Stream：Webhook 和 WebSocket 音频流成熟，适合快速跑通端到端 Demo；生产环境可按国内号码和合规要求替换为阿里云语音或 SIP Trunk。
 - 语音模型选择 OpenAI Realtime API：同一连接内完成语音输入、VAD、转写、语音输出和函数调用，避免 ASR + LLM + TTS 多服务串联延迟。
-- 未使用 VAPI/Retell：商业 SaaS 上线快但链路黑盒，本项目更重视可解释的架构、工具调用、风控和数据层实现。
+- 未使用 VAPI/Retell：商业 SaaS 上线快但链路黑盒；这里选择自建，方便展示电话流、工具调用、风控和数据层实现。
 - 存储选择 SQLite，通知选择 PushPlus：本地部署简单，能验证结构化登记、查询和个人微信通知；生产环境可替换为 PostgreSQL/MySQL 和企业微信 API。
 
 ## 功能
@@ -63,8 +63,6 @@ Twilio 控制台配置：
 ```
 
 ## 环境变量
-
-参考 `.env.example`，真实密钥只放 `.env`，不要提交 `.env`、`data/`、`logs/`。
 
 ```env
 TWILIO_ACCOUNT_SID=your_twilio_account_sid

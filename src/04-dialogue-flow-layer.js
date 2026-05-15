@@ -19,9 +19,9 @@ export function createDialogueSession(visitorService) {
   function greetingInstruction() {
     if (previousVisitor) {
       const name = previousVisitor.visitor_name ? `${previousVisitor.visitor_name}您好，` : '您好，';
-      return `请用中文自然地说：${name}今天还是来${previousVisitor.company}${previousVisitor.reason}吗？`;
+      return `${name}今天还是来${previousVisitor.company}${previousVisitor.reason}吗？`;
     }
-    return '请用中文自然地说：您好，门岗。您怎么称呼？车牌、找哪家公司、什么事儿，一起说下就行。';
+    return '您好，门岗。您怎么称呼？车牌、找哪家公司、什么事儿，一起说下就行。';
   }
 
   async function handleTranscript(transcript) {
@@ -39,15 +39,15 @@ export function createDialogueSession(visitorService) {
         blockedForManualHandoff = true;
         return {
           kind: 'risk_handoff',
-          instruction: '请用中文自然地说：当前通话将转交人工门卫处理，请稍等。'
+          instruction: '这边给您转人工门卫处理，请稍等。'
         };
       }
 
       return {
         kind: 'prompt',
         instruction: risk.risk_type === 'prompt_injection'
-          ? '请用中文自然地说：我只能帮您做访客登记。请直接说车牌、来访单位和事由。'
-          : '请用中文自然地说：我会继续帮您登记，请直接说车牌、来访单位和事由。'
+          ? '我这边只做访客登记。您直接说车牌、来访单位和事由就行。'
+          : '没事，我继续帮您登记。您说下车牌、来访单位和事由。'
       };
     }
 
@@ -66,7 +66,7 @@ export function createDialogueSession(visitorService) {
         if (visitorService.isReturnRejection(cleanTranscript) && !visitorService.hasNewVisitDetails(parsed, cleanTranscript)) {
           return {
             kind: 'prompt',
-            instruction: '请用中文自然地说：好的，那您怎么称呼？车牌、找哪家公司、什么事儿，一起说下就行。'
+            instruction: '好的，那您怎么称呼？车牌、找哪家公司、什么事儿，一起说下就行。'
           };
         }
       }
@@ -90,7 +90,7 @@ export function createDialogueSession(visitorService) {
       return {
         kind: 'blocked',
         output: { ok: false, blocked: true, reason: 'manual_handoff' },
-        instruction: '请用中文自然地说：当前通话需要人工门卫处理，请稍等。'
+        instruction: '这通电话需要人工门卫处理，请稍等。'
       };
     }
 
@@ -130,7 +130,7 @@ export function createDialogueSession(visitorService) {
     return {
       kind: 'done',
       output: { ok: true, visitor: result.visitor },
-      instruction: `请简短确认：好的，${result.visitor.visitor_name ? result.visitor.visitor_name + '，' : ''}${result.visitor.license_plate}，${result.visitor.company}${result.visitor.reason}，已通知门卫，请稍等放行。`
+      instruction: `好的，${result.visitor.visitor_name ? result.visitor.visitor_name + '，' : ''}${result.visitor.license_plate}，${result.visitor.company}${result.visitor.reason}，已通知门卫，请稍等放行。`
     };
   }
 
@@ -211,13 +211,13 @@ export function submitVisitToolDefinition() {
 function buildRetryInstruction(issues) {
   const fields = issues.map((issue) => issue.field);
   if (fields.includes('license_plate') && (fields.includes('company') || fields.includes('reason'))) {
-    return '请自然追问：我这边没听全，车牌、找哪家公司、什么事儿，麻烦一起再说下。';
+    return '我这边没听全，车牌、找哪家公司、什么事儿，麻烦一起再说下。';
   }
   if (fields.includes('license_plate')) {
-    return '请自然追问：车牌我没听清，麻烦再说一遍。';
+    return '车牌我没听清，麻烦再说一遍。';
   }
   if (fields.includes('phone')) {
-    return '请自然追问：收到，手机号方便再说一下吗？';
+    return '收到，手机号方便再说一下吗？';
   }
 
   const labelMap = {
@@ -225,7 +225,7 @@ function buildRetryInstruction(issues) {
     reason: '来访事由'
   };
   const missing = fields.map((field) => labelMap[field] || field).join('、');
-  return `请自然追问：${missing}我还没听清，麻烦补一下。`;
+  return `${missing}我还没听清，麻烦补一下。`;
 }
 
 function hasCollectedAnyVisitDetail(visitor) {

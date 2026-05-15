@@ -386,7 +386,7 @@ export function createVoiceGateway(config, visitorService) {
         const question = visitorService.sanitizeTranscript(event.transcript || '');
         if (question) {
           const result = visitorService.answerGuardQuery(question);
-          sendGuardInstruction(`请像门卫同事一样自然简短地说：${result.answer}`);
+          sendGuardInstruction(result.answer);
         }
         return;
       }
@@ -433,13 +433,13 @@ export function createVoiceGateway(config, visitorService) {
       const question = visitorService.sanitizeTranscript(args.question || '');
       const result = visitorService.answerGuardQuery(question);
       sendGuardFunctionResult(callId, { ok: true, question, answer: result.answer, data: result.data });
-      sendGuardInstruction(`请像门卫同事一样自然简短地说：${result.answer}`);
+      sendGuardInstruction(result.answer);
     }
 
     function maybeSendGuardGreeting() {
       if (!openaiReady || !streamSid || greetingSent || openaiWs.readyState !== WebSocket.OPEN) return;
       greetingSent = true;
-      sendGuardInstruction('请用中文自然地说：您好，想查哪段访客记录？');
+      sendGuardInstruction('您好，想查哪段访客记录？');
     }
 
     function sendGuardInstruction(instruction) {
