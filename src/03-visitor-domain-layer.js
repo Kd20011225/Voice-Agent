@@ -146,6 +146,10 @@ export function createVisitorService(infrastructure) {
       return answerPeakHour(cleanQuestion, visitors, filters);
     }
 
+    if (/(最近|最新).*(几条|几笔|几次|记录|列表)|记录列表/u.test(cleanQuestion)) {
+      return answerRecentList(cleanQuestion, visitors, filters);
+    }
+
     if (/(最近|上次|最后一次|最新)/u.test(cleanQuestion)) {
       return answerLatestVisit(cleanQuestion, visitors, filters);
     }
@@ -333,7 +337,7 @@ function answerLatestVisit(question, visitors, filters) {
 
   const name = latest.visitor_name ? `${latest.visitor_name}，` : '';
   return {
-    answer: `最近一次是 ${formatTimestamp(latest.visited_at)}，${name}车牌 ${latest.license_plate}，来 ${latest.company}${latest.reason}。`,
+    answer: `最近一次是${formatSpokenTimestamp(latest.visited_at)}，${name}车牌 ${latest.license_plate}，来 ${latest.company}${latest.reason}。`,
     data: {
       type: 'latest',
       latest,
@@ -353,7 +357,7 @@ function answerRecentList(question, visitors, filters) {
 
   const lines = recent.map((item) => {
     const name = item.visitor_name ? `${item.visitor_name} ` : '';
-    return `${formatTimestamp(item.visited_at)} ${name}${item.license_plate} 来 ${item.company}${item.reason}`;
+    return `${formatSpokenTimestamp(item.visited_at)}，${name}${item.license_plate} 来 ${item.company}${item.reason}`;
   });
   return {
     answer: `${filters.rangeLabel}最近 ${recent.length} 条记录：${lines.join('；')}。`,
@@ -403,6 +407,31 @@ function addDays(date, days) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
+}
+
+function formatSpokenTimestamp(ts) {
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) return '时间不详';
+
+  const now = new Date();
+  const datePart = sameDay(date, now)
+    ? '今天'
+    : sameDay(date, addDays(startOfDay(now), -1))
+      ? '昨天'
+      : `${date.getMonth() + 1}月${date.getDate()}日`;
+
+  const hour = date.getHours();
+  const minute = date.getMinutes();
+  const period = hour < 6 ? '凌晨' : hour < 12 ? '上午' : hour < 18 ? '下午' : '晚上';
+  const spokenHour = hour % 12 || 12;
+  const minutePart = minute === 0 ? '整' : `${minute}分`;
+  return `${datePart}${period}${spokenHour}点${minutePart}`;
+}
+
+function sameDay(left, right) {
+  return left.getFullYear() === right.getFullYear()
+    && left.getMonth() === right.getMonth()
+    && left.getDate() === right.getDate();
 }
 
 export function sanitizeTranscript(input) {
