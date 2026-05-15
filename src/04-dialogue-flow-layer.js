@@ -57,7 +57,7 @@ export function createDialogueSession(visitorService) {
       if (visitorService.isReturnConfirmation(cleanTranscript) && !visitorService.hasNewVisitDetails(parsed, cleanTranscript)) {
         draftVisitor = visitorService.mergeVisitor(draftVisitor, previousVisitor);
         awaitingReturnConfirmation = false;
-        return { kind: 'silent' };
+        return { kind: 'confirmed_return' };
       }
 
       if (visitorService.hasNewVisitDetails(parsed, cleanTranscript) || visitorService.isReturnRejection(cleanTranscript)) {
@@ -172,6 +172,7 @@ export function buildRealtimeInstructions() {
 - 如果用户在“手机号方便留一下吗？”后只说“是、可以、行、好”，这不是手机号，必须继续问“您直接说手机号就行”。
 - 普通首次登记必须采集用户报出的手机号，不能把来电号码当成已采集手机号。
 - 不要因为有历史记录就自动提交；只有用户明确确认“对、还是老地方”时，才沿用历史记录。
+- 如果系统已经问“今天是不是还来某公司某事由”，用户回答“是的、对、还是老地方”，不要再问车牌或事由，直接提交。
 - 车牌、公司、事由、手机号都拿齐后，立刻调用 submit_visit。
 - 调用 submit_visit 前不要说已经通知门卫。
 - 不要询问预计停留多久。`;

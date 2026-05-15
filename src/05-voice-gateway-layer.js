@@ -192,6 +192,10 @@ export function createVoiceGateway(config, visitorService) {
         const action = await dialogue.handleTranscript(event.transcript || '');
         if (action.kind === 'prompt') sendAssistantInstruction(action.instruction);
         if (action.kind === 'risk_handoff') sendAssistantInstruction(action.instruction);
+        if (action.kind === 'confirmed_return') {
+          const result = await dialogue.handleSubmitVisit(null, '{}');
+          if (result.instruction) sendAssistantInstruction(result.instruction);
+        }
         return;
       }
 
